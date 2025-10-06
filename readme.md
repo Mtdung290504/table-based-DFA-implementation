@@ -1,9 +1,7 @@
 # DFA Transition Table Implementation
 
 This repo provides a simple **Deterministic Finite Automaton (DFA)** implementation using a **transition table**.
-It is based on what is usually taught in computer science courses about automata and regular expressions.
-
-The DFA is implemented in **JavaScript**, and the code can run in both **Node.js** and **browser** environments without modification.
+The code runs in both **Node.js** and **browser** environments without modification.
 
 ---
 
@@ -17,55 +15,21 @@ The DFA is implemented in **JavaScript**, and the code can run in both **Node.js
   - `q0` → Start state
   - `F` → Accept states
 
-- The transition table is created in code and reused for multiple states when possible to save memory.
+- The transition table is written directly in code.
 
-- Input strings are checked step by step.
-  Each character moves the automaton to the next state, or rejects if no transition is defined.
+- Each character of the input moves the automaton to the next state, or rejects if no transition exists.
 
 ---
 
 ## Example
 
-The main function in **index.js** shows an example DFA for the regular expression:
+See **index.js** for an example DFA implementation based on the regular expression:
 
 ```
 (a + b)(a + b + 1)*
 ```
 
-Steps in `main()`:
-
-1. Create DFA instance
-2. Define states and mark start/accept states
-3. Define the alphabet (e.g. `['a', 'b', '1']`)
-4. Define transition table rows with `defineTransaction()`
-5. Apply transitions to each state with `useTransaction()`
-6. Check input string with `stateMachine.check(input)`
-
-Example input:
-
-```js
-const input = "ab111ba";
-console.log(stateMachine.check(input) ? "[Pass]" : "[Fail]");
-```
-
-Console output will log the state transitions, and finally `[Pass]` or `[Fail]`.
-
----
-
-## Customization
-
-- To try different problems:
-
-  - Open **index.js**
-  - Modify the DFA inside the `main()` function:
-
-    - Change the number of states
-    - Adjust start/accept states
-    - Redefine the alphabet
-    - Update the transition table
-    - Provide your own input string
-
-- The `assert` function is used to throw errors when an invalid DFA definition is created (e.g., wrong state IDs).
+Open the code to read how states, alphabet, and transitions are defined.
 
 ---
 
@@ -74,10 +38,14 @@ Console output will log the state transitions, and finally `[Pass]` or `[Fail]`.
 ### Node.js
 
 ```bash
-node index.js
+node .\index.js
 ```
 
 ### Browser
+
+Copy and paste into the browser console
+
+Or
 
 Include the script in an HTML file:
 
@@ -87,13 +55,24 @@ Include the script in an HTML file:
 
 Open the console to see logs.
 
-Or
+---
 
-Copy and paste into the browser console.
+## Customization
+
+To try different problems:
+
+- Open **index.js**
+- Inside the `main()` function:
+
+  - Change the number of states
+  - Adjust start/accept states
+  - Redefine the alphabet
+  - Update the transition table
+  - Provide your own input string
 
 ---
 
 ## Notes
 
-- This code is meant for **learning purposes**, focusing on clarity and simplicity.
-- It demonstrates how to map a transition table directly into code.
+- This project is for **learning purposes**.
+- It shows how to map a DFA transition table directly into code.
