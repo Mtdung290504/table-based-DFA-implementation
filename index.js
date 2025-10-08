@@ -1,37 +1,40 @@
-// Main, implementing the transition table for regular expression (a + b)(a + b + 1)*
+// @ts-check
+// Main example: implementing transition table for regex (a + b)(a + b + 1)*
 {
 	// DFA(Q, Σ, δ, q0, F)
-	const stateMachine = createDFA();
+	const stateMachine = createDFA(1);
 
-	// Create and set states (Modify according to state table)
+	// Create and set states (Modify according to your state table)
 	const [q1, q2, q3, q4, q5, q6] = stateMachine.useStates(6); // Q
 	stateMachine.setStartState(q1); // q0
 	stateMachine.setAcceptStates([q2, q3, q4, q5, q6]); // F
 
-	// Set alphabet (Modify according to state table)
+	// Set alphabet (Modify according to your state table)
 	stateMachine.useSigma(['a', 'b', '1']); // Σ
 
-	// Create transition functions (δ) (Modify according to state table)
-	// Essentially each transaction is very similar to each row in the transition table
+	// Create transition functions (δ) (Modify according to your state table)
+	// Each transaction is essentially a row in the transition table (after minimization)
 	const transaction_1 = stateMachine.defineTransaction([q2, q3, null]);
 	const transaction_2 = stateMachine.defineTransaction([q4, q5, q6]);
 
 	// Set transition functions for states
 	stateMachine.useTransaction(q1, transaction_1);
-	[q2, q3, q4, q5, q6].forEach((stateID) =>
-		stateMachine.useTransaction(stateID, transaction_2)
-	); // Transition functions can be reused for different states to optimize memory
+	[q2, q3, q4, q5, q6].forEach((stateID) => stateMachine.useTransaction(stateID, transaction_2)); // Transition functions can be reused for different states to optimize memory
 
-	// Check input (Modify as needed or according to specific requirements)
+	// Check input (Modify as needed or based on requirements)
 	const input = 'ab111ba';
 	console.log(stateMachine.check(input) ? '[Pass]' : '[Fail]');
 }
 
-function createDFA() {
-	/**Auto-incrementing ID used to generate IDs for states */
-	let currentID = 0;
+/**
+ * @param {number} [startStateID=0] - Starting ID, for easier log reading when first state is q1 for example
+ * @returns
+ */
+function createDFA(startStateID = 0) {
+	const nextStateID = createIdGenerator(startStateID);
+	const nextTransactionID = createIdGenerator();
 
-	/**By default q0 is the first state created, can be reset later */
+	/** By default q0 is the first state created, can be reset later */
 	let q0 = 0;
 
 	/**
@@ -47,44 +50,55 @@ function createDFA() {
 	const acceptStates = new Set();
 
 	/**
-	 * Alphabet being used
-	 * @type {string[]}
+	 * Alphabet in use, mapped with index to access transaction
+	 * @type {Map<string, number>}
 	 */
-	let sigmaSet = [];
+	let sigmaMap = new Map();
+
+	/** Size of alphabet in use */
+	let sigmaSize = 0;
 
 	/**
-	 * Transition functions for states
-	 * @type {Map<number, Map<string, number | null>>}
+	 * Store transactions
+	 * @type {Map<number, (number | null)[]>}
 	 */
-	const transactionMaps = new Map();
+	const transactions = new Map();
+
+	/**
+	 * Map storing transition functions for states: Map<stateID, transactionID>
+	 * @type {Map<number, number>}
+	 */
+	const transactionsMap = new Map();
 
 	return {
+		states,
+		acceptStates,
+
 		useStates,
 		setStartState,
 		setAcceptStates,
+
 		useSigma,
+
 		defineTransaction,
 		useTransaction,
+
 		check,
 	};
 
 	/**
-	 * Initialize states based on the desired number
+	 * Initialize states based on desired quantity
 	 *
-	 * @param {number} numberOfStates - Number of states
+	 * @param {number} count - Number of states
 	 * @returns - Array of created state IDs
 	 */
-	function useStates(numberOfStates) {
-		assert(numberOfStates >= 1, 'Invalid number of states (min = 1)');
-		const rs = [];
+	function useStates(count) {
+		assert(count >= 1, 'Invalid number of states (min = 1)');
 
-		for (let i = 0; i < numberOfStates; i++) {
-			const id = currentID++;
-			states.add(id);
-			rs.push(id);
-		}
+		states.clear();
+		for (let i = 0; i < count; i++) states.add(nextStateID());
 
-		return rs;
+		return Array.from(states);
 	}
 
 	/**
@@ -93,21 +107,16 @@ function createDFA() {
 	 */
 	function setStartState(stateID) {
 		assert(states.has(stateID), 'Invalid state ID');
-		assert(
-			!acceptStates.has(stateID),
-			'Cannot set accept state as start state'
-		);
 		q0 = stateID;
 	}
 
 	/**
 	 * Set states as accept states
-	 * @param {number[]} stateIDs - Array of state IDs that are accept states
+	 * @param {number[]} stateIDs
 	 */
 	function setAcceptStates(stateIDs) {
 		stateIDs.forEach((stateID) => {
 			assert(states.has(stateID), 'Invalid state ID');
-			assert(q0 !== stateID, 'Cannot set start state as accept state');
 			acceptStates.add(stateID);
 		});
 	}
@@ -117,35 +126,40 @@ function createDFA() {
 	 * @param {string[]} sigma
 	 */
 	function useSigma(sigma) {
-		sigmaSet = Array.from(new Set(sigma));
+		const filteredSigma = Array.from(new Set(sigma));
+
+		sigmaMap = new Map(filteredSigma.map((char, index) => [char, index]));
+		sigmaSize = filteredSigma.length;
 	}
 
 	/**
-	 * Define transition states in the order of the alphabet, ***if there is no transition, must write `null`***
-	 * @param {(number | null)[]} transactions
+	 * Define transition states in alphabet order, ***if there is no transition, must set `null`***
+	 * @param {(number | null)[]} transaction
 	 */
-	function defineTransaction(transactions) {
-		assert(
-			transactions.length === sigmaSet.length,
-			'The number of transition states must match the character set.'
-		);
+	function defineTransaction(transaction) {
+		assert(transaction.length === sigmaSize, 'The number of transition states must match the character set.');
 
-		return new Map(
-			sigmaSet.map((char, index) => [char, transactions[index]])
-		);
+		const tID = nextTransactionID();
+		transactions.set(tID, transaction);
+
+		return tID;
 	}
 
 	/**
-	 * Use a transition function for a state
+	 * Apply transition function to a state
+	 *
 	 * @param {number} stateID
-	 * @param {Map<string, number | null>} transactions
+	 * @param {number} transactionID
 	 */
-	function useTransaction(stateID, transactions) {
-		transactionMaps.set(stateID, transactions);
+	function useTransaction(stateID, transactionID) {
+		assert(states.has(stateID), 'Invalid state ID');
+		assert(transactions.has(transactionID), 'Invalid transaction ID');
+
+		transactionsMap.set(stateID, transactionID);
 	}
 
 	/**
-	 * Check if the input is valid
+	 * Check if input is valid
 	 * @param {string} input
 	 */
 	function check(input) {
@@ -154,32 +168,45 @@ function createDFA() {
 
 		for (let i = 0; i < chars.length; i++) {
 			const char = chars[i];
-			const nextState = transactionMaps.get(state)?.get(char);
+			const tID = transactionsMap.get(state);
+			if (typeof tID !== 'number') return false; // State has no transition function, reject
 
-			if (typeof nextState === 'number') {
-				console.log(
-					`Read: "${char}" at stateID:[${state}], goto stateID:[${nextState}]`
-				);
-				state = nextState;
+			const stateIndex = sigmaMap.get(char);
+			if (typeof stateIndex !== 'number') return false; // Char not in alphabet, reject
+
+			const nextStateID = transactions.get(tID)?.[stateIndex];
+
+			// If there is a next state, continue; otherwise reject
+			if (typeof nextStateID === 'number') {
+				console.log(`Read "${char}" at stateID:[${state}], goto stateID:[${nextStateID}]`);
+				state = nextStateID;
 			} else {
-				// Reject
-				console.log(`Read: "${char}" at stateID:[${state}], reject`);
+				console.log(`Read "${char}" at stateID:[${state}], reject`);
 				return false;
 			}
 		}
 
-		// If passed through the loop, the string is valid.
-		// At this point, need to check if the stopped state is an accept state or not
+		// If passed the loop, the string is definitely valid
+		// Check if the final state is an accept state
 		return acceptStates.has(state);
 	}
 }
 
 /**
- * Throw an error if condition is false
+ * Throw error if condition is false
  *
  * @param {boolean} condition
  * @param {string} message
  */
 function assert(condition, message) {
 	if (!condition) throw new Error(message);
+}
+
+/**
+ * Helper: Create incrementing ID generator
+ * @param {number} startID - First ID
+ */
+function createIdGenerator(startID = 0) {
+	let i = startID;
+	return () => i++;
 }
